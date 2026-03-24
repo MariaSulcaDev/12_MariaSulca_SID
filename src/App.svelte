@@ -2,6 +2,7 @@
      import { ethers } from "ethers";
      import Web3 from "web3";
 
+     // Tipo para el proveedor del wallet con los objetos necesarios, request con metodo y parametros, on y removeListener para eventos del wallet
      type WalletProvider = {
           request: (args: {
                method: string;
@@ -14,19 +15,23 @@
           ) => void;
      };
 
+     // tipo para que detecte los objetos del wallet
      type WalletWindow = Window & {
           ethereum?: WalletProvider;
           pali?: WalletProvider;
           paliEthereum?: WalletProvider;
      };
 
+     // Declarar constantes de datos del wallet
      let address = "";
      let balanceEthers = "";
      let balanceWeb3 = "";
      let chainId = "";
+     let networkName = "";
      let status = "Wallet no conectada";
      let isLoading = false;
 
+     // metodo de obtener el proveedor de wallet inyectado en el navegador
      const getProvider = (): WalletProvider | null => {
           const walletWindow = window as WalletWindow;
           return (
@@ -37,9 +42,36 @@
           );
      };
 
+     // constante de formateo de la direccion para que se muestre corta
      const shortAddress = (value: string) =>
           value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "-";
 
+     // funcion para obtener el nombre de la red a partir del chainId o del nombre proporcionado por el wallet
+     const getNetworkLabel = (id: string, name: string) => {
+          const normalized = name?.toLowerCase?.() ?? "";
+
+          if (normalized && normalized !== "unknown") {
+               return name;
+          }
+
+          // redes comunes con sus chain id para interpretar el nombre de la red
+          const networkByChainId: Record<string, string> = {
+               "1": "Ethereum Mainnet",
+               "5": "Goerli",
+               "11155111": "Sepolia",
+               "137": "Polygon",
+               "80001": "Polygon Mumbai",
+               "56": "BNB Smart Chain",
+               "97": "BNB Smart Chain Testnet",
+               "57042": "zkSYS PoB Devnet EVM",
+               "43114": "Avalanche C-Chain",
+               "43113": "Avalanche Fuji",
+          };
+
+          return networkByChainId[id] ?? `Chain ID ${id}`;
+     };
+
+     // funcion para conectar con el wallet
      const connectWallet = async () => {
           const injected = getProvider();
 
@@ -73,6 +105,7 @@
                          browserProvider.getNetwork(),
                     ]);
 
+               // aca se obtiene la cantidad de ethers que se tiene en este caso TSYS
                balanceEthers = Number(
                     ethers.formatEther(ethersBalanceRaw),
                ).toFixed(6);
@@ -80,6 +113,7 @@
                     new Web3().utils.fromWei(web3BalanceRaw, "ether"),
                ).toFixed(6);
                chainId = network.chainId.toString();
+               networkName = getNetworkLabel(chainId, network.name);
                status = "Sesión iniciada correctamente";
           } catch {
                status = "No fue posible conectar con Pali Wallet";
@@ -87,26 +121,41 @@
                isLoading = false;
           }
      };
-
+     // function para desconectar el wallet y limpiar los datos mostrados
      const disconnectWallet = () => {
           address = "";
           balanceEthers = "";
           balanceWeb3 = "";
           chainId = "";
+          networkName = "";
           status = "Wallet no conectada";
      };
 </script>
 
-<main class="shell">
-     <section class="panel">
-          <header class="header">
+<main
+     class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_10%_0%,#f6f8ff_0%,#edf1fb_35%,#e6ebf6_100%)] p-5 text-slate-900 font-[Manrope,Segoe_UI,sans-serif]"
+>
+     <section
+          class="w-full max-w-220 rounded-[18px] border border-[#d6dce8] bg-white/90 p-5 shadow-[0_14px_42px_-28px_rgba(15,23,42,0.45)] backdrop-blur-xs md:p-8"
+     >
+          <header
+               class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+          >
                <div>
-                    <p class="eyebrow">PeruConfia · Pali Wallet</p>
-                    <h1>Panel de conexión</h1>
+                    <p
+                         class="mb-[0.35rem] text-[0.72rem] font-bold uppercase tracking-[0.11em] text-slate-600"
+                    >
+                         PeruConfia · Pali Wallet
+                    </p>
+                    <h1
+                         class="m-0 text-[clamp(1.45rem,1.8vw,1.95rem)] leading-[1.15] text-slate-900"
+                    >
+                         Panel de conexión
+                    </h1>
                </div>
 
                <button
-                    class="primary"
+                    class="w-full min-w-42.5 rounded-[10px] bg-slate-900 px-4 py-[0.72rem] text-[0.92rem] font-bold text-white transition duration-150 enabled:hover:-translate-y-px enabled:hover:bg-slate-800 enabled:hover:shadow-[0_8px_18px_-12px_rgba(15,23,42,0.8)] disabled:cursor-not-allowed disabled:opacity-[0.65] sm:w-auto"
                     on:click={connectWallet}
                     disabled={isLoading}
                >
@@ -114,227 +163,96 @@
                </button>
           </header>
 
-          <div class="status-row">
-               <span class="dot" aria-hidden="true"></span>
-               <p>{status}</p>
+          <div
+               class="mb-[1.1rem] flex items-center gap-[0.55rem] rounded-[10px] border border-slate-200 bg-slate-50 px-[0.85rem] py-[0.7rem]"
+          >
+               <span
+                    class="h-[0.52rem] w-[0.52rem] flex-none rounded-full bg-blue-600 shadow-[0_0_0_5px_rgba(37,99,235,0.12)]"
+                    aria-hidden="true"
+               ></span>
+               <p class="m-0 text-[0.9rem] font-semibold text-slate-700">
+                    {status}
+               </p>
           </div>
 
-          <section class="grid" aria-label="Resumen de wallet">
-               <article class="card card-wide">
-                    <h2>Dirección</h2>
-                    <p class="mono">{address || "-"}</p>
-                    <small>Vista corta: {shortAddress(address)}</small>
+          <section
+               class="grid grid-cols-1 gap-[0.85rem] sm:grid-cols-2"
+               aria-label="Resumen de wallet"
+          >
+               <article
+                    class="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2"
+               >
+                    <h2
+                         class="m-0 text-[0.78rem] font-extrabold uppercase tracking-[0.08em] text-slate-500"
+                    >
+                         Dirección
+                    </h2>
+                    <p
+                         class="mt-[0.65rem] overflow-wrap-anywhere text-[0.9rem] leading-[1.45] text-slate-900 font-['JetBrains_Mono',Consolas,monospace]"
+                    >
+                         {address || "-"}
+                    </p>
+                    <small
+                         class="mt-[0.45rem] block text-[0.82rem] text-slate-500"
+                         >Vista corta: {shortAddress(address)}</small
+                    >
                </article>
 
-               <article class="card">
-                    <h2>Saldo (ethers)</h2>
-                    <p class="metric">{balanceEthers || "-"} TSYS</p>
+               <article class="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2
+                         class="m-0 text-[0.78rem] font-extrabold uppercase tracking-[0.08em] text-slate-500"
+                    >
+                         Saldo (ethers)
+                    </h2>
+                    <p
+                         class="mt-[0.65rem] text-[clamp(1.05rem,2.2vw,1.35rem)] font-extrabold text-slate-900"
+                    >
+                         {balanceEthers || "-"} TSYS
+                    </p>
                </article>
 
-               <article class="card">
-                    <h2>Saldo (web3)</h2>
-                    <p class="metric">{balanceWeb3 || "-"} TSYS</p>
-                    <small>Chain ID: {chainId || "-"}</small>
+               <article class="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2
+                         class="m-0 text-[0.78rem] font-extrabold uppercase tracking-[0.08em] text-slate-500"
+                    >
+                         Saldo (web3)
+                    </h2>
+                    <p
+                         class="mt-[0.65rem] text-[clamp(1.05rem,2.2vw,1.35rem)] font-extrabold text-slate-900"
+                    >
+                         {balanceWeb3 || "-"} TSYS
+                    </p>
+                    <small
+                         class="mt-[0.45rem] block text-[0.82rem] text-slate-500"
+                         >Chain ID: {chainId || "-"}</small
+                    >
+               </article>
+
+               <article class="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2
+                         class="m-0 text-[0.78rem] font-extrabold uppercase tracking-[0.08em] text-slate-500"
+                    >
+                         Red conectada
+                    </h2>
+                    <p
+                         class="mt-[0.65rem] text-[clamp(1.05rem,2.2vw,1.35rem)] font-extrabold text-slate-900"
+                    >
+                         {networkName || "-"}
+                    </p>
+                    <small
+                         class="mt-[0.45rem] block text-[0.82rem] text-slate-500"
+                         >Identificador: {chainId || "-"}</small
+                    >
                </article>
           </section>
 
-          <footer class="actions">
-               <button class="ghost" on:click={disconnectWallet}>Desconectar</button>
+          <footer class="mt-[1.1rem] flex justify-end">
+               <button
+                    class="rounded-[10px] bg-rose-100 px-4 py-[0.72rem] text-[0.92rem] font-bold text-rose-800 transition duration-150 hover:bg-rose-200"
+                    on:click={disconnectWallet}
+               >
+                    Desconectar
+               </button>
           </footer>
      </section>
 </main>
-
-<style>
-     :global(body) {
-          margin: 0;
-          font-family: "Manrope", "Segoe UI", sans-serif;
-          background: radial-gradient(
-                    circle at 10% 0%,
-                    #f6f8ff 0%,
-                    #edf1fb 35%,
-                    #e6ebf6 100%
-               )
-               fixed;
-          color: #111827;
-     }
-
-     .shell {
-          min-height: 100vh;
-          display: grid;
-          place-items: center;
-          padding: 1.25rem;
-     }
-
-     .panel {
-          width: min(880px, 100%);
-          background: rgba(255, 255, 255, 0.92);
-          border: 1px solid #d6dce8;
-          border-radius: 18px;
-          box-shadow: 0 14px 42px -28px rgba(15, 23, 42, 0.45);
-          padding: clamp(1.25rem, 2vw, 2rem);
-          backdrop-filter: blur(4px);
-     }
-
-     .header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 1rem;
-          margin-bottom: 1.25rem;
-     }
-
-     .eyebrow {
-          margin: 0 0 0.35rem;
-          font-size: 0.72rem;
-          letter-spacing: 0.11em;
-          text-transform: uppercase;
-          color: #4b5563;
-          font-weight: 700;
-     }
-
-     h1 {
-          margin: 0;
-          font-size: clamp(1.45rem, 1.8vw, 1.95rem);
-          line-height: 1.15;
-          color: #0f172a;
-     }
-
-     .primary,
-     .ghost {
-          border: none;
-          border-radius: 10px;
-          padding: 0.72rem 1rem;
-          font: inherit;
-          font-size: 0.92rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: transform 120ms ease, box-shadow 120ms ease,
-               background-color 120ms ease;
-     }
-
-     .primary {
-          background: #0f172a;
-          color: #ffffff;
-          min-width: 170px;
-     }
-
-     .primary:hover:enabled {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.8);
-          background: #1f2937;
-     }
-
-     .primary:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-     }
-
-     .status-row {
-          display: flex;
-          align-items: center;
-          gap: 0.55rem;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 0.7rem 0.85rem;
-          margin-bottom: 1.1rem;
-     }
-
-     .status-row p {
-          margin: 0;
-          font-size: 0.9rem;
-          color: #334155;
-          font-weight: 600;
-     }
-
-     .dot {
-          width: 0.52rem;
-          height: 0.52rem;
-          border-radius: 50%;
-          background: #2563eb;
-          box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.12);
-          flex: 0 0 auto;
-     }
-
-     .grid {
-          display: grid;
-          gap: 0.85rem;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-     }
-
-     .card {
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          background: #ffffff;
-          padding: 1rem;
-     }
-
-     .card h2 {
-          margin: 0;
-          font-size: 0.78rem;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #64748b;
-          font-weight: 800;
-     }
-
-     .card .metric {
-          margin: 0.65rem 0 0;
-          font-size: clamp(1.05rem, 2.2vw, 1.35rem);
-          font-weight: 800;
-          color: #0f172a;
-     }
-
-     .card small {
-          margin-top: 0.45rem;
-          display: block;
-          color: #64748b;
-          font-size: 0.82rem;
-     }
-
-     .card-wide {
-          grid-column: 1 / -1;
-     }
-
-     .mono {
-          margin: 0.65rem 0 0;
-          color: #0f172a;
-          font-family: "JetBrains Mono", "Consolas", monospace;
-          font-size: 0.9rem;
-          overflow-wrap: anywhere;
-          line-height: 1.45;
-     }
-
-     .actions {
-          margin-top: 1.1rem;
-          display: flex;
-          justify-content: flex-end;
-     }
-
-     .ghost {
-          background: #fee2e2;
-          color: #9f1239;
-     }
-
-     .ghost:hover {
-          background: #fecdd3;
-     }
-
-     @media (max-width: 700px) {
-          .header {
-               flex-direction: column;
-          }
-
-          .primary {
-               width: 100%;
-          }
-
-          .grid {
-               grid-template-columns: 1fr;
-          }
-
-          .card-wide {
-               grid-column: auto;
-          }
-     }
-</style>
